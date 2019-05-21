@@ -1,0 +1,221 @@
+---
+title: "Midrange"
+author: "Kevin Chen"
+date: "December 25, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(rvest)
+library(dplyr)
+library(stringr)
+
+
+datalist = list()
+
+for (i in 2007:2019){
+
+#widgets.sports-reference.com/wg.fcgi?css=1&site=bbr&url=%2Fleagues%2FNBA_2019.html&div=div_team_shooting
+
+main <- "https://widgets.sports-reference.com/wg.fcgi?css=1&site=bbr&url=%2Fleagues%2FNBA_"
+tail <- ".html&div=div_team_shooting"
+
+url <- paste0(main, i, tail)
+
+
+first <- url %>%
+read_html() %>%
+html_table()
+
+first <- first[[1]]
+first[2,] <- paste(first[1,], first[2,], sep=" ")
+
+colnames(first) <- first[2,]
+
+first <- first[-c(1:2),]
+first$i <- i
+datalist[[i]] <- first
+
+
+
+
+#names(first) <- as.character(unlist(first[1,]))
+#first <- first[-1,]
+
+}
+teams_shooting <- bind_rows(datalist)
+
+#scrape offensive rating
+datalist2 = list()
+for(i in 2007:2019){
+  main <- "https://widgets.sports-reference.com/wg.fcgi?css=1&site=bbr&url=%2Fleagues%2FNBA_"
+  tail2 <- ".html&div=div_misc_stats"
+  url <- paste0(main, i, tail2)
+
+  first <- url %>%
+    read_html() %>%
+    html_table()
+  
+  first <- first[[1]]
+  colnames(first) <- first[1,]
+  first <- first[-1,]
+  first$i <- i
+  datalist2[[i]] <- first
+}
+teams_stats <- bind_rows(datalist2)
+```
+
+#Select relevant columns for mid range data
+```{r}
+teams_shooting$` Team` <- str_remove_all(teams_shooting$` Team`, "\\*")
+
+teams_midrange<-teams_shooting[,c(1,2,5,10,11,12,15,16)]
+teams_midrange$Year<-as.vector(teams_shooting%>%select(., i))
+teams_midrange[,3:8]<-sapply(teams_midrange[,3:8],as.numeric)
+teams_midrange$` % of FGA Midrange` <- rowSums(teams_midrange[,c(4,5)], na.rm=TRUE)
+teams_midrange$` Midrange FG%` <- rowSums(teams_midrange[,c(6,7)]) #have to weigh the FG% by distance for it to be accurate
+```
+
+#Remove unwanted characters from team stats data
+```{r}
+teams_stats$Team <- str_remove_all(teams_stats$Team, "\\*")
+```
+
+
+#Arranging team stats each season in alphabetical order
+```{r}
+end = 30
+start = 1
+c=0
+#1-30 for 2007, the again for 2008 onward
+while(c<13){
+  teams_stats[start:end,]<-teams_stats[start:end,]%>% arrange(.,Team)
+  start = end+2
+  end = start+29
+  c=c+1
+}
+
+```
+
+##Add Ortg to Midrange data
+```{r}
+teams_midrange$ORtg <- as.numeric(teams_stats$ORtg) #adding ORtg from team_stats to team_shooting
+teams_midrange<-teams_midrange[,c(1:8,10,11,12,9)] #rearrange columns
+```
+
+#sort according to ortg in desc order
+```{r}
+end = 30
+start = 1
+c=0
+while(c<13){
+  teams_midrange[start:end,]<-teams_midrange[start:end,]%>% arrange(.,-ORtg)
+  start = end+2
+  end = start+29
+  c=c+1
+}
+```
+
+##Lm predicting Ortg from FGA Midrange. Residuals looks good
+```{r}
+offrtg<-lm(teams_midrange$ORtg~teams_midrange$` % of FGA Midrange`)
+summary(offrtg)
+plot(offrtg)
+```
+
+##% field goal attempts from 3 by year
+```{r}
+League_Avg3<-teams_midrange[seq(31,403,31), 6] #taking the league avg every year of FGA from 3P
+```
+
+##Off rating leaders 2007-19
+```{r}
+Off_Rank<- data.frame(teams_midrange[seq(1,403,31),])
+Off_Rank$Year<-unlist(Off_Rank$Year)
+```
+
+#% FGA 3p compared to league average for ortg leader
+```{r}
+Off_Rank<-cbind(Off_Rank,League_Avg3) ##Difference in Off Rtg leaders 3P FGA to league avg
+```
+
+#% field goal attempts from mid range by year
+```{r}
+League_Avg<- teams_midrange[seq(31,403,31), 9]
+```
+
+##Compare ortg leaders to FGA from midrange avg for league
+```{r}
+Off_Rank<-cbind(Off_Rank,League_Avg)
+plot(League_Avg~Off_Rank$Year)
+```
+
+#assign corresponding ranks according to %FGA mid and FG% mid
+```{r}
+end = 30
+start = 1
+c=0
+while(c<13){ #problem with while loop here. Multiple mutations, never ending loop
+  teams_midrange2[start:end,]<-teams_midrange[start:end,]%>% mutate(.,rank = dense_rank(desc(names(teams_midrange)[9])))
+  start = end+2
+  end = start+29
+  c=c+1
+}
+```
+
+```{r}
+teams_midrange$Year<- unlist(teams_midrange$Year)
+teams_midrange2<-teams_midrange %>% select(` Team`, ` % of FGA Midrange`, Year)
+
+teams_midrange3 <- teams_midrange %>% dplyr::group_by( Year) %>% dplyr::mutate(rank = dplyr::dense_rank(` % of FGA Midrange`))
+teams_midrange$` % of FGA Midrange`
+teams_midrange3 <- teams_midrange3 %>% arrange(Year, rank)
+```
+
+
+
+##Problem in plotting
+```{r}
+plot(teams_midrange$` ORtg`~teams_midrange$` % of FGA Midrange`, xlab = "% of FGA Midrange", ylab = "Offensive Rating")
+abline(offrtg, col = "red")
+abline(mean(teams_midrange$` ORtg`), col = "blue")
+```
+
+#How many times did team with highest FGA from mid range finished inside the top 10 in offense
+```{r}
+teams_midrange_att<-teams_midrange
+names(teams_midrange_att)[9]<- "MidrangeFGAP"
+end = 30
+start = 1
+c=0
+while(c<13){
+  teams_midrange_att[start:end,]<-teams_midrange_att[start:end,]%>% arrange(.,-MidrangeFGAP)
+  start = end+2
+  end = start+29
+  c=c+1
+}
+
+
+#leaders from 2007-2019
+
+
+##group by year and team, top n fn in dplyr, mutate (if in top 10, )
+teams_midrange3$top <- ifelse(teams_midrange3$rank %in% 1:10, 1,0)
+##plyr, sum top by team tapply(teams_midrange3$top, teams_midrange3$` Team`,sum)
+```
+
+#Among teams in top 10 midrange FGA every year, how many of them ranked in the top 10 in offense that year?
+- out of all the teams in that span, how many times did team with highest % of midrange FGA ranked in the top 10 in offense?
+  creat new df and order acc to highest FGA mid --> or find max FGA midrange every season (more challenging) --> nested loop to see if the team is in the top 10 in offense that season (use a counter)
+
+- among the teams in top 10 midrange FGA every year, how many of them ranked in the top 10 in offense?
+same method, except we are now comparing 10 teams 
+
+- Shooting 3's should not be done blindly, even if the stats may suggest so. Hypothesis is more threes, less midrange give higher probability of winning. But, one thing this hypothesis doesnt account for is the psychological effect of mised shots. Missed shots are frustrating, and taking more threes just because they're more "efficient" than long twos doesn't alwas improve chance to win. Can expect to see frustration in the form of more fouls, more contested jumpers, more turnovers, and less energy on defense (def rtg)
+Ho: Lower 3p% has no effect on team/player psyche
+Ha: Lower 3p% has a negative effect on players psyche
+Examine games where teams shoot lower than their season av 3p%. In those games, expect to see lower def rtg, more TOs, more fouls and more
