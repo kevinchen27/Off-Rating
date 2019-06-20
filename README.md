@@ -1,2 +1,2 @@
 # Off-Rating
-Investigating relationship between Team Offensive Rating and Midrange Shot Attempts. Research is currently in progress
+Investigating relationship between Team Offensive Rating and Midrange Shot Attempts. Long-term research project currently in progress. The aim of this research is to establish whether midrange shots adversely effect a team's offense, measured using Offensive Rating, the consensus metric to define a team's offense. While initial findings seemed to suggest taking less midrange shots to improve offense, further investigations and checking of assumptions and data is required.
