@@ -2,13 +2,10 @@
 title: "Midrange"
 author: "Kevin Chen"
 date: "December 25, 2018"
-output: html_document
+output: pdf_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
+#Webscraping Data
 ```{r}
 library(rvest)
 library(dplyr)
@@ -17,6 +14,7 @@ library(stringr)
 
 datalist = list()
 
+#webscraping for years 2007:2019
 for (i in 2007:2019){
 
 #widgets.sports-reference.com/wg.fcgi?css=1&site=bbr&url=%2Fleagues%2FNBA_2019.html&div=div_team_shooting
@@ -24,7 +22,7 @@ for (i in 2007:2019){
 main <- "https://widgets.sports-reference.com/wg.fcgi?css=1&site=bbr&url=%2Fleagues%2FNBA_"
 tail <- ".html&div=div_team_shooting"
 
-url <- paste0(main, i, tail)
+url <- paste0(main, i, tail) #combines correct url according to year 
 
 
 first <- url %>%
@@ -47,7 +45,7 @@ datalist[[i]] <- first
 #first <- first[-1,]
 
 }
-teams_shooting <- bind_rows(datalist)
+teams_shooting <- bind_rows(datalist) # this is for fga% etc
 
 #scrape offensive rating
 datalist2 = list()
@@ -66,18 +64,42 @@ for(i in 2007:2019){
   first$i <- i
   datalist2[[i]] <- first
 }
+
+#Combining data
 teams_stats <- bind_rows(datalist2)
+names(teams_shooting) <- trimws(names(teams_shooting))
 ```
+
+#Rename teams 
+```{r}
+#bobcats
+teams_stats[teams_stats[,"Team"] == "Charlotte Bobcats", "Team"] = "Charlotte Hornets"
+teams_shooting[teams_shooting[,"Team"] == "Charlotte Bobcats", "Team"] = "Charlotte Hornets"
+
+#seattle
+teams_stats[teams_stats[,"Team"] == "Seattle Supersonics", "Team"] = "Oklahoma City Thunder"
+teams_shooting[teams_shooting[,"Team"] == "Seattle Supersonics", "Team"] = "Oklahoma City Thunder"
+
+#new orelans
+teams_stats[teams_stats[,"Team"] == "New Orleans Hornets", "Team"] = "New Orleans Pelicans"
+teams_shooting[teams_shooting[,"Team"] == "New Orleans Hornets", "Team"] = "New Orleans Pelicans"
+```
+
 
 #Select relevant columns for mid range data
 ```{r}
-teams_shooting$` Team` <- str_remove_all(teams_shooting$` Team`, "\\*")
+#selecting relevant columns
+teams_midrange<-teams_shooting[,c(1,2,5,9,10,11,12,15,16, 17, 18)]
 
-teams_midrange<-teams_shooting[,c(1,2,5,10,11,12,15,16)]
-teams_midrange$Year<-as.vector(teams_shooting%>%select(., i))
-teams_midrange[,3:8]<-sapply(teams_midrange[,3:8],as.numeric)
-teams_midrange$` % of FGA Midrange` <- rowSums(teams_midrange[,c(4,5)], na.rm=TRUE)
-teams_midrange$` Midrange FG%` <- rowSums(teams_midrange[,c(6,7)]) #have to weigh the FG% by distance for it to be accurate
+#create year column
+teams_midrange$Year<-teams_shooting%>%select(., i) %>% unlist()
+
+#make columns numeric
+teams_midrange[,3:ncol(teams_midrange)]<-sapply(teams_midrange[,3:ncol(teams_midrange)],as.numeric)
+
+#create %FGA by midrange column
+teams_midrange$`% of FGA by Midrange` <- rowSums(teams_midrange[,c(4,5,6)]) 
+
 ```
 
 #Remove unwanted characters from team stats data
@@ -98,13 +120,13 @@ while(c<13){
   end = start+29
   c=c+1
 }
-
 ```
+
 
 ##Add Ortg to Midrange data
 ```{r}
 teams_midrange$ORtg <- as.numeric(teams_stats$ORtg) #adding ORtg from team_stats to team_shooting
-teams_midrange<-teams_midrange[,c(1:8,10,11,12,9)] #rearrange columns
+teams_midrange<-teams_midrange[,c(1:7,13,8:11, ncol(teams_midrange),12)] #rearrange columns
 ```
 
 #sort according to ortg in desc order
@@ -122,12 +144,18 @@ while(c<13){
 
 ##Lm predicting Ortg from FGA Midrange. Residuals looks good
 ```{r}
-offrtg<-lm(teams_midrange$ORtg~teams_midrange$` % of FGA Midrange`)
+offrtg<-lm(teams_midrange$ORtg~teams_midrange$`% of FGA by Midrange`)
 summary(offrtg)
 plot(offrtg)
 ```
+##Plot offensive rating and % of FGA from midrange
+```{r}
+library(ggplot2)
+ggplot(teams_midrange, aes(x = `% of FGA by Midrange` , y = ORtg)) + geom_point(size = 2) + labs(title = "Offensive Rating vs % of FGA from Midrange", x = "% of FGA from Midrange", y = "Offensive Rating")
+ggplot(teams_midrange, aes(x = `% of FGA by Distance 3P` , y = ORtg)) + geom_point(size = 2) + labs(title = "Offensive Rating vs % of FGA from 3P", x = "% of FGA from 3P", y = "Offensive Rating")
+```
 
-##% field goal attempts from 3 by year
+# % FGA from 3 by year
 ```{r}
 League_Avg3<-teams_midrange[seq(31,403,31), 6] #taking the league avg every year of FGA from 3P
 ```
@@ -136,11 +164,14 @@ League_Avg3<-teams_midrange[seq(31,403,31), 6] #taking the league avg every year
 ```{r}
 Off_Rank<- data.frame(teams_midrange[seq(1,403,31),])
 Off_Rank$Year<-unlist(Off_Rank$Year)
+names(Off_Rank) <- names(teams_midrange)
 ```
 
 #% FGA 3p compared to league average for ortg leader
 ```{r}
 Off_Rank<-cbind(Off_Rank,League_Avg3) ##Difference in Off Rtg leaders 3P FGA to league avg
+Off_Rank <- Off_Rank %>% select(Team, `% of FGA by Distance 3P`, ORtg, Year, League_Avg3)
+
 ```
 
 #% field goal attempts from mid range by year
@@ -150,22 +181,12 @@ League_Avg<- teams_midrange[seq(31,403,31), 9]
 
 ##Compare ortg leaders to FGA from midrange avg for league
 ```{r}
-Off_Rank<-cbind(Off_Rank,League_Avg)
+Off_Rank<-cbind(Off_Rank,League_Avg) %>% select(Team, `% of FGA by Distance 3P`, ORtg, Year)
+
 plot(League_Avg~Off_Rank$Year)
 ```
 
 #assign corresponding ranks according to %FGA mid and FG% mid
-```{r}
-end = 30
-start = 1
-c=0
-while(c<13){ #problem with while loop here. Multiple mutations, never ending loop
-  teams_midrange2[start:end,]<-teams_midrange[start:end,]%>% mutate(.,rank = dense_rank(desc(names(teams_midrange)[9])))
-  start = end+2
-  end = start+29
-  c=c+1
-}
-```
 
 ```{r}
 teams_midrange$Year<- unlist(teams_midrange$Year)
@@ -178,14 +199,12 @@ teams_midrange3 <- teams_midrange3 %>% arrange(Year, rank)
 
 
 
-##Problem in plotting
+##Plotting model (Incomplete)
 ```{r}
-plot(teams_midrange$` ORtg`~teams_midrange$` % of FGA Midrange`, xlab = "% of FGA Midrange", ylab = "Offensive Rating")
-abline(offrtg, col = "red")
-abline(mean(teams_midrange$` ORtg`), col = "blue")
+plot(teams_midrange$ORtg~teams_midrange$` % of FGA Midrange`, xlab = "% of FGA Midrange", ylab = "Offensive Rating")
 ```
 
-#How many times did team with highest FGA from mid range finished inside the top 10 in offense
+#How many times did team with highest FGA from mid range finished inside the top 10 in offense (In progress)
 ```{r}
 teams_midrange_att<-teams_midrange
 names(teams_midrange_att)[9]<- "MidrangeFGAP"
@@ -199,14 +218,21 @@ while(c<13){
   c=c+1
 }
 
+is.valu
+```
 
+
+
+#Further Work to be Done
+```{r}
 #leaders from 2007-2019
-
 
 ##group by year and team, top n fn in dplyr, mutate (if in top 10, )
 teams_midrange3$top <- ifelse(teams_midrange3$rank %in% 1:10, 1,0)
 ##plyr, sum top by team tapply(teams_midrange3$top, teams_midrange3$` Team`,sum)
 ```
+
+#Further investigative analysis ()
 
 #Among teams in top 10 midrange FGA every year, how many of them ranked in the top 10 in offense that year?
 - out of all the teams in that span, how many times did team with highest % of midrange FGA ranked in the top 10 in offense?
@@ -219,3 +245,5 @@ same method, except we are now comparing 10 teams
 Ho: Lower 3p% has no effect on team/player psyche
 Ha: Lower 3p% has a negative effect on players psyche
 Examine games where teams shoot lower than their season av 3p%. In those games, expect to see lower def rtg, more TOs, more fouls and more
+
+Multi level regression and average of all teams offense across 13 years
