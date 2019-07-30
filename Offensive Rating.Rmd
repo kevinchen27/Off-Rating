@@ -188,9 +188,9 @@ plot(League_Avg~Off_Rank$Year)
 
 #assign corresponding ranks according to %FGA mid and FG% mid
 
-```{r}
+##```{r}
 teams_midrange$Year<- unlist(teams_midrange$Year)
-teams_midrange2<-teams_midrange %>% select(` Team`, ` % of FGA Midrange`, Year)
+teams_midrange2<-teams_midrange %>% select(Team, `% of FGA Midrange`, Year)
 
 teams_midrange3 <- teams_midrange %>% dplyr::group_by( Year) %>% dplyr::mutate(rank = dplyr::dense_rank(` % of FGA Midrange`))
 teams_midrange$` % of FGA Midrange`
@@ -200,12 +200,12 @@ teams_midrange3 <- teams_midrange3 %>% arrange(Year, rank)
 
 
 ##Plotting model (Incomplete)
-```{r}
+#```{r}
 plot(teams_midrange$ORtg~teams_midrange$` % of FGA Midrange`, xlab = "% of FGA Midrange", ylab = "Offensive Rating")
 ```
 
 #How many times did team with highest FGA from mid range finished inside the top 10 in offense (In progress)
-```{r}
+#```{r}
 teams_midrange_att<-teams_midrange
 names(teams_midrange_att)[9]<- "MidrangeFGAP"
 end = 30
@@ -224,7 +224,7 @@ is.valu
 
 
 #Further Work to be Done
-```{r}
+#```{r}
 #leaders from 2007-2019
 
 ##group by year and team, top n fn in dplyr, mutate (if in top 10, )
