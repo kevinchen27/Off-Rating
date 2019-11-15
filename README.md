@@ -11,4 +11,6 @@ Indeed, graphs that measured these two types of shots against offensive rating s
 
 To investigate further, I wanted to see whether the league average offensive rating improved year-on-year along with the increase in threes attempted. Interestingly, there were quite a few years where the NBA's average offensive rating was higher than in years where the league as a whole attempted more threes. Yet, over the past three years when three-point attempts have ballooned, the league's average offensive rating has skyROCKETed (get it?).
 
+<p align = "center">
 <img src="https://github.com/kevinchen27/Off-Rating/blob/master/images/Offleader%203p.png" width="400" align = "middle"/>
+</p>
