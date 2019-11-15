@@ -7,4 +7,4 @@ To answer this question, I investigated NBA data from 2007 (when Daryl Morey too
 
 Indeed, graphs that measured these two types of shots against offensive rating showed a distinct negative relationship between a offensive rating and midrange shots attempted while indicating a positive correlation between three-point attempts and offensive performance.
 
-<img src="https://github.com/kevinchen27/Off-Rating/blob/master/images/OffRtg%20vs%20Midrange%20Att.png" width="200"/> <img src="https://github.com/kevinchen27/Off-Rating/blob/master/images/offrtg%20vs%203p%20att.png" width="300"/>
+<img src="https://github.com/kevinchen27/Off-Rating/blob/master/images/OffRtg%20vs%20Midrange%20Att.png" width="400"/> <img src="https://github.com/kevinchen27/Off-Rating/blob/master/images/offrtg%20vs%203p%20att.png" width="400"/>
